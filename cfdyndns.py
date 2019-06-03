@@ -41,6 +41,8 @@ def set_record(cf_email, cf_apikey, zone, ip):
     else:
         rt = 'AAAA'
 
+    cf_ttl = 1 # 60 sec. ttl seems commonn for dyndns provider, but 120 sec is cf minimum, leaving it to auto.
+
     # cloudflare v4 api
     cf_api = 'https://api.cloudflare.com/client/v4/'
     cf_header = {'Content-Type': 'application/json',  'X-Auth-Email': cf_email, 'X-Auth-Key': cf_apikey}
@@ -57,7 +59,7 @@ def set_record(cf_email, cf_apikey, zone, ip):
         # create (initial) record
         r = requests.post(
             cf_api + 'zones/' + zone_id + '/dns_records', headers=cf_header,
-            json={'type': rt, 'name': zone, 'content': ip.exploded, 'proxied': False})
+            json={'type': rt, 'name': zone, 'content': ip.exploded, 'proxied': False, 'ttl': cf_ttl })
     else:
         # searching for additional records
         for record in entries[1:]:
@@ -66,7 +68,7 @@ def set_record(cf_email, cf_apikey, zone, ip):
 
         # update (existing) record
         r = requests.put(cf_api + 'zones/' + zone_id + '/dns_records/' + entries[0]['id'],
-            headers=cf_header, json={'type': rt, 'name': zone, 'content': ip.exploded, 'proxied': False})
+            headers=cf_header, json={'type': rt, 'name': zone, 'content': ip.exploded, 'proxied': False, 'ttl': cf_ttl })
 
 
 def lambda_handler(event, context):
@@ -81,12 +83,12 @@ def lambda_handler(event, context):
 
         domain = validate_domain(parm['domain'])
 
-        # validate ipv4
+        # ipv4
         ipv4 = getip_address(parm['ipv4'], 4)
         set_record(cf_email, cf_apikey, domain, ipv4)
 
-        # validate ipv6 (optional)
-        if 'ipv6' in parm:
+        # ipv6 (optional)
+        if 'ipv6' in parm and parm['ipv6']:
             ipv6 = getip_address(parm['ipv6'], 6)
             set_record(cf_email, cf_apikey, domain, ipv6)
 
